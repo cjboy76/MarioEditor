@@ -4,12 +4,10 @@ export const welcomeCode = {
   css: `.h1{
     color:purple
   }`,
-  javascript: "console.log('hello world')",
+  javascript: "console.log('hello world from MarioEditor')",
 };
-// useStore could be anything like useUser, useCart
-// the first argument is a unique id of the store across your application
+
 export const useFileStore = defineStore("fileStore", {
-  // other options...
   state: () => {
     return {
       files: {
@@ -22,7 +20,6 @@ export const useFileStore = defineStore("fileStore", {
   actions: {
     updateFile(file, fileType) {
       this.files[fileType] = file;
-      console.log(this.files);
     },
   },
 });

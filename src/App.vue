@@ -1,13 +1,11 @@
 <script setup>
-// import { Repl } from "@vue/repl";
-// import "@vue/repl/style.css";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watchEffect } from "vue";
 import { useFileStore, welcomeCode } from "./store/fileStore";
 import srcdoc from "./assets/playground.html?raw";
 import { debounce } from "./utils";
@@ -53,7 +51,11 @@ onMounted(() => {
     }, 500)
   );
 });
-
+sandBox.addEventListener("load", () => {
+  watchEffect(() => {
+    console.log("watchEffect", monacoEditor.getValue());
+  });
+});
 const compileResult = () => {
   let templateCode =
     `document.body.innerHTML = "${fileStore.$state.files["html"]}";` +
@@ -74,20 +76,15 @@ const compileResult = () => {
   );
 };
 
-// const previousLang = ref("");
 const selectLang = ref("html");
-// previousLang.value = selectLang.value;
 const selectLangHandler = () => {
-  // fileStore.updateFile(monacoEditor.getValue(), previousLang.value);
   monaco.editor.setModelLanguage(monacoEditor.getModel(), selectLang.value);
   let content = fileStore.$state.files[selectLang.value] ?? "";
   monacoEditor.getModel().setValue(content);
-  // previousLang.value = selectLang.value;
 };
 </script>
 
 <template>
-  <!-- <Repl /> -->
   <button @click="compileResult">complie result</button>
   <select name="" id="" @change="selectLangHandler" v-model="selectLang">
     <option value="html">html</option>
@@ -101,28 +98,31 @@ const selectLangHandler = () => {
 </template>
 
 <style lang="scss">
+* {
+  margin: 0;
+  padding: 0;
+}
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
-  margin-top: 60px;
+  width: 100vw;
+  height: 100vh;
+  background: white;
 }
 #LAONE {
   display: flex;
   #editor {
-    border: 1px dashed rebeccapurple;
-    height: 100vh;
+    height: 80vh;
     width: 50vw;
   }
   #preview {
-    border: 1px dashed black;
-    height: 100vh;
+    height: 80vh;
     width: 50%;
-    & :deep(iframe) {
+    & iframe {
       width: 100%;
-      height: 100vh;
-      border: none;
+      height: 100%;
+      border: 1px solid rgb(55, 55, 55);
       background-color: #fff;
     }
   }

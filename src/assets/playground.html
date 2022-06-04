@@ -14,12 +14,18 @@
   <body>
     <script>
       (() => {
+        let scriptElements = null;
         const handleMessages = (ev) => {
           const { action, code } = ev.data;
           if (action === "eval") {
+            if (scriptElements) {
+              document.head.removeChild(scriptElements);
+              scriptElements = null;
+            }
             let script = document.createElement("script");
             script.innerHTML = code;
             document.head.appendChild(script);
+            scriptElements = script;
           }
           if (action === "style") {
             let styleSheet = document.createElement("style");
