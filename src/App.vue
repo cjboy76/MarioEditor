@@ -74,17 +74,37 @@ const selectLangHandler = () => {
   let content = fileStore.$state.files[selectLang.value] ?? "";
   monacoEditor.getModel().setValue(content);
 };
+
+const filesSystem = [
+  { name: "index.html", genre: "html" },
+  { name: "index.css", genre: "css" },
+  { name: "index.js", genre: "javascript" },
+];
+let activeFile = ref("");
+const selectFile = ({ genre, name }) => {
+  activeFile.value = name;
+  selectLang.value = genre;
+  selectLangHandler();
+  console.log(activeFile);
+};
 </script>
 
 <template>
-  <button @click="compileResult">complie result</button>
-  <select name="" id="" @change="selectLangHandler" v-model="selectLang">
-    <option value="html">html</option>
-    <option value="css">css</option>
-    <option value="javascript">javascript</option>
-  </select>
   <div id="LAONE">
-    <div id="editor"></div>
+    <div class="editor">
+      <div>
+        <button
+          v-for="file of filesSystem"
+          :key="file.name"
+          class="file"
+          @click="selectFile(file)"
+          :class="{ 'file-active': activeFile === file.name }"
+        >
+          {{ file.name }}
+        </button>
+      </div>
+      <div id="editor"></div>
+    </div>
     <div id="preview" ref="preview"></div>
   </div>
 </template>
@@ -118,5 +138,16 @@ const selectLangHandler = () => {
       background-color: #fff;
     }
   }
+}
+.file {
+  background: #fff;
+  padding: 0.5em 2em;
+  border: 1px solid #777;
+  border-top-left-radius: 5%;
+  border-top-right-radius: 5%;
+  cursor: pointer;
+}
+.file-active {
+  background: rgb(241, 241, 208);
 }
 </style>
