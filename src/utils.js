@@ -7,3 +7,7 @@ export function debounce(fn, n = 250) {
     }, n);
   };
 }
+
+export function stringFormat(string) {
+  return string.replace(/\r?\n|\r/g, "");
+}

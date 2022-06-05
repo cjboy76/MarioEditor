@@ -8,7 +8,7 @@ import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
 import { onMounted, ref, watchEffect } from "vue";
 import { useFileStore, welcomeCode } from "./store/fileStore";
 import srcdoc from "./assets/playground.html?raw";
-import { debounce } from "./utils";
+import { debounce, stringFormat } from "./utils";
 
 const preview = ref();
 
@@ -37,6 +37,7 @@ let sandBox = document.createElement("iframe");
 onMounted(() => {
   sandBox.srcdoc = srcdoc;
   preview.value.appendChild(sandBox);
+
   monacoEditor = monaco.editor.create(document.getElementById("editor"), {
     value: welcomeCode["html"],
     language: "html",
@@ -45,32 +46,23 @@ onMounted(() => {
   });
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
-      let rmNewlinesFile = monacoEditor.getValue().replace(/\r?\n|\r/g, "");
-      fileStore.updateFile(rmNewlinesFile, selectLang.value);
+      fileStore.updateFile(monacoEditor.getValue(), selectLang.value);
       compileResult();
     }, 500)
   );
 });
-sandBox.addEventListener("load", () => {
-  watchEffect(() => {
-    console.log("watchEffect", monacoEditor.getValue());
-  });
-});
 const compileResult = () => {
   let templateCode =
-    `document.body.innerHTML = "${fileStore.$state.files["html"]}";` +
-    fileStore.$state.files["javascript"];
+    `document.body.innerHTML = "${stringFormat(
+      fileStore.$state.files["html"]
+    )}";` +
+    `${fileStore.$state.files["javascript"]};` +
+    `window.__css = "${stringFormat(fileStore.$state.files["css"])}";` +
+    `document.getElementById('playground_styles').innerHTML = window.__css;`;
   sandBox.contentWindow.postMessage(
     {
       action: "eval",
       code: templateCode,
-    },
-    "*"
-  );
-  sandBox.contentWindow.postMessage(
-    {
-      action: "style",
-      code: fileStore.$state.files["css"],
     },
     "*"
   );
