@@ -11,15 +11,15 @@ export const useFileStore = defineStore("fileStore", {
   state: () => {
     return {
       files: {
-        html: welcomeCode["html"],
-        css: welcomeCode["css"],
-        javascript: welcomeCode["javascript"],
+        html: { index: welcomeCode["html"] },
+        css: { index: welcomeCode["css"] },
+        js: { index: welcomeCode["javascript"] },
       },
     };
   },
   actions: {
-    updateFile(file, fileType) {
-      this.files[fileType] = file;
+    updateFile(file, genre, name) {
+      this.files[genre][name] = file;
     },
   },
 });

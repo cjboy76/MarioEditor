@@ -5,10 +5,10 @@ import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
-import { onMounted, ref, watchEffect } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFileStore, welcomeCode } from "./store/fileStore";
 import srcdoc from "./assets/playground.html?raw";
-import { debounce, stringFormat } from "./utils";
+import { debounce, stringFormat, filesFormat } from "./utils";
 
 const preview = ref();
 
@@ -46,63 +46,94 @@ onMounted(() => {
   });
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
-      fileStore.updateFile(monacoEditor.getValue(), selectLang.value);
+      fileStore.updateFile(
+        monacoEditor.getValue(),
+        activeFileName.value[1],
+        activeFileName.value[0]
+      );
       compileResult();
     }, 500)
   );
 });
 const compileResult = () => {
   let templateCode =
-    `document.body.innerHTML = "${stringFormat(
+    `document.body.innerHTML = "${filesFormat(
       fileStore.$state.files["html"]
     )}";` +
-    `${fileStore.$state.files["javascript"]};` +
-    `window.__css = "${stringFormat(fileStore.$state.files["css"])}";` +
+    `${filesFormat(fileStore.$state.files["js"], true)}` +
+    `window.__css = "${filesFormat(fileStore.$state.files["css"])}";` +
     `document.getElementById('playground_styles').innerHTML = window.__css;`;
   sandBox.contentWindow.postMessage(
     {
       action: "eval",
-      code: templateCode,
+      code: stringFormat(templateCode),
     },
     "*"
   );
 };
 
-const selectLang = ref("html");
-const selectLangHandler = () => {
-  monaco.editor.setModelLanguage(monacoEditor.getModel(), selectLang.value);
-  let content = fileStore.$state.files[selectLang.value] ?? "";
+const setEditorContent = () => {
+  monaco.editor.setModelLanguage(
+    monacoEditor.getModel(),
+    activeFileName.value[1] === "js" ? "javascript" : activeFileName.value[1]
+  );
+  let content =
+    fileStore.$state.files[activeFileName.value[1]][activeFileName.value[0]] ??
+    "";
   monacoEditor.getModel().setValue(content);
 };
 
-const filesSystem = [
-  { name: "index.html", genre: "html" },
-  { name: "index.css", genre: "css" },
-  { name: "index.js", genre: "javascript" },
-];
-let activeFile = ref("");
-const selectFile = ({ genre, name }) => {
+const filesSystem = ref([
+  { name: "index.html" },
+  { name: "index.css" },
+  { name: "index.js" },
+]);
+let activeFile = ref("index.html");
+let activeFileName = computed(() => {
+  return activeFile.value.split(".");
+});
+const selectFile = ({ name }) => {
   activeFile.value = name;
-  selectLang.value = genre;
-  selectLangHandler();
-  console.log(activeFile);
+  setEditorContent();
 };
+const pending = ref(false);
+const addFileStart = () => {
+  pending.value = true;
+};
+const addFileDone = () => {
+  if (!pending.value) return;
+  const fileName = placeholder.value;
+  if (!/\.(js|css)$/.test(fileName)) {
+    console.log("file type not allowed.");
+    return;
+  }
+  console.log("good");
+  addFileCancel();
+  filesSystem.value.push({ name: fileName });
+  selectFile({ name: fileName });
+};
+const addFileCancel = () => {
+  placeholder.value = "Sample.js";
+  pending.value = false;
+};
+const placeholder = ref("Sample.js");
 </script>
 
 <template>
   <div id="LAONE">
     <div class="editor">
-      <div>
-        <button
-          v-for="file of filesSystem"
-          :key="file.name"
-          class="file"
+      <div class="file" v-for="file of filesSystem" :key="file.name">
+        <span
           @click="selectFile(file)"
-          :class="{ 'file-active': activeFile === file.name }"
+          :class="{ active: activeFile === file.name }"
         >
           {{ file.name }}
-        </button>
+        </span>
       </div>
+      <div v-if="pending" class="file addFile">
+        <input type="text" v-model="placeholder" @keyup.enter="addFileDone" />
+      </div>
+      <button class="addButton" @click="addFileStart">+</button>
       <div id="editor"></div>
     </div>
     <div id="preview" ref="preview"></div>
@@ -110,6 +141,7 @@ const selectFile = ({ genre, name }) => {
 </template>
 
 <style lang="scss">
+@import "./assets/variables.scss";
 * {
   margin: 0;
   padding: 0;
@@ -120,16 +152,21 @@ const selectFile = ({ genre, name }) => {
   -moz-osx-font-smoothing: grayscale;
   width: 100vw;
   height: 100vh;
-  background: white;
+  background: $--bg-default;
 }
 #LAONE {
   display: flex;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   #editor {
-    height: 80vh;
+    height: 100%;
     width: 50vw;
   }
   #preview {
-    height: 80vh;
+    height: 100%;
     width: 50%;
     & iframe {
       width: 100%;
@@ -140,14 +177,37 @@ const selectFile = ({ genre, name }) => {
   }
 }
 .file {
-  background: #fff;
-  padding: 0.5em 2em;
-  border: 1px solid #777;
-  border-top-left-radius: 5%;
-  border-top-right-radius: 5%;
+  display: inline-block;
+}
+.file span {
+  display: inline-block;
+  padding: 0.5em 2em 0.3rem;
+  line-height: 20px;
+  color: $--text-default;
   cursor: pointer;
 }
-.file-active {
-  background: rgb(241, 241, 208);
+.file .active {
+  border-bottom: 2px solid $--text-highlight;
+  color: $--text-highlight;
+}
+.addFile {
+  color: $--text-default;
+  > input {
+    padding: 0.1rem;
+    border: none;
+    width: 4rem;
+    outline: none;
+    border-radius: 5%;
+    width: 90px;
+    height: 30px;
+    line-height: 30px;
+  }
+}
+.addButton {
+  cursor: pointer;
+  border: none;
+  color: $--text-default;
+  background: $--bg-default;
+  margin-left: 6px;
 }
 </style>
