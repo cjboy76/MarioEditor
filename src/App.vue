@@ -105,10 +105,9 @@ const addFileDone = () => {
   if (!pending.value) return;
   const fileName = placeholder.value;
   if (!/\.(js|css)$/.test(fileName)) {
-    console.log("file type not allowed.");
+    alert("file type not allowed.");
     return;
   }
-  console.log("good");
   addFileCancel();
   filesSystem.value.push({ name: fileName });
   selectFile({ name: fileName });
@@ -118,23 +117,48 @@ const addFileCancel = () => {
   pending.value = false;
 };
 const placeholder = ref("Sample.js");
+const focus = ({ el }) => {
+  el.focus();
+};
+const removeFile = (file) => {
+  alert(`Really want to delete ${file} ???`);
+  fileStore.removeFile(file);
+  filesSystem.value = filesSystem.value.filter((_) => _.name !== file);
+  compileResult();
+};
 </script>
 
 <template>
   <div id="LAONE">
     <div class="editor">
-      <div class="file" v-for="file of filesSystem" :key="file.name">
-        <span
-          @click="selectFile(file)"
-          :class="{ active: activeFile === file.name }"
-        >
+      <div
+        class="file"
+        v-for="file of filesSystem"
+        :key="file.name"
+        :class="{ active: activeFile === file.name }"
+      >
+        <span @click="selectFile(file)">
           {{ file.name }}
         </span>
+        <span
+          class="p-0"
+          v-if="file.name !== 'index.html'"
+          @click="removeFile(file.name)"
+          >✖️</span
+        >
       </div>
       <div v-if="pending" class="file addFile">
-        <input type="text" v-model="placeholder" @keyup.enter="addFileDone" />
+        <input
+          type="text"
+          spellcheck="false"
+          v-model="placeholder"
+          @keyup.enter="addFileDone"
+          @keyup.esc="addFileCancel"
+          @blur="addFileDone"
+          @vnodeMounted="focus"
+        />
       </div>
-      <button class="addButton" @click="addFileStart">+</button>
+      <button class="addButton" @click="addFileStart">➕</button>
       <div id="editor"></div>
     </div>
     <div id="preview" ref="preview"></div>
@@ -179,15 +203,18 @@ const placeholder = ref("Sample.js");
 }
 .file {
   display: inline-block;
+  span {
+    display: inline-block;
+    padding: 0.5em 2em 0.3rem;
+    line-height: 20px;
+    color: $--text-default;
+    cursor: pointer;
+  }
+  .p-0 {
+    padding: 0;
+  }
 }
-.file span {
-  display: inline-block;
-  padding: 0.5em 2em 0.3rem;
-  line-height: 20px;
-  color: $--text-default;
-  cursor: pointer;
-}
-.file .active {
+.active {
   border-bottom: 2px solid $--text-highlight;
   color: $--text-highlight;
 }
