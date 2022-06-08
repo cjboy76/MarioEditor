@@ -63,6 +63,7 @@ const compileResult = () => {
     `${filesFormat(fileStore.$state.files["js"], true)}` +
     `window.__css = "${filesFormat(fileStore.$state.files["css"])}";` +
     `document.getElementById('playground_styles').innerHTML = window.__css;`;
+
   sandBox.contentWindow.postMessage(
     {
       action: "eval",

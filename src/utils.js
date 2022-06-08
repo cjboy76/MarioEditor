@@ -16,7 +16,7 @@ export function filesFormat(files, isJscode = false) {
   let output = "";
   for (const file in files) {
     if (isJscode) {
-      output += `${files[file]};`;
+      output += `${files[file]};`.replace(/;;/, ";");
     } else {
       output += `${files[file]}`;
     }

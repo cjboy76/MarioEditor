@@ -19,6 +19,9 @@ export const useFileStore = defineStore("fileStore", {
   },
   actions: {
     updateFile(file, genre, name) {
+      if (genre === "js") {
+        file = file.replace(/\n/g, ";");
+      }
       this.files[genre][name] = file;
     },
   },
