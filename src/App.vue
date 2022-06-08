@@ -1,5 +1,5 @@
 <script setup>
-import * as monaco from "monaco-editor";
+import * as Monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
@@ -38,12 +38,17 @@ onMounted(() => {
   sandBox.srcdoc = srcdoc;
   preview.value.appendChild(sandBox);
 
-  monacoEditor = monaco.editor.create(document.getElementById("editor"), {
+  monacoEditor = Monaco.editor.create(document.getElementById("editor"), {
     value: welcomeCode["html"],
     language: "html",
     fontSize: "16px",
     theme: "vs-dark",
   });
+
+  sandBox.addEventListener("load", () => {
+    compileResult();
+  });
+
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
       fileStore.updateFile(
@@ -74,7 +79,7 @@ const compileResult = () => {
 };
 
 const setEditorContent = () => {
-  monaco.editor.setModelLanguage(
+  Monaco.editor.setModelLanguage(
     monacoEditor.getModel(),
     activeFileName.value[1] === "js" ? "javascript" : activeFileName.value[1]
   );
@@ -101,11 +106,25 @@ const pending = ref(false);
 const addFileStart = () => {
   pending.value = true;
 };
+let duplicate = ref(false);
+
 const addFileDone = () => {
   if (!pending.value) return;
   const fileName = placeholder.value;
   if (!/\.(js|css)$/.test(fileName)) {
     alert("file type not allowed.");
+    return;
+  }
+  duplicate.value = false;
+  filesSystem.value.forEach((_) => {
+    if (_.name === fileName) {
+      duplicate.value = true;
+      return;
+    }
+  });
+  console.log(duplicate);
+  if (duplicate.value) {
+    alert("file name existed.");
     return;
   }
   addFileCancel();
