@@ -143,6 +143,9 @@ const removeFile = (file) => {
   alert(`Really want to delete ${file} ???`);
   fileStore.removeFile(file);
   filesSystem.value = filesSystem.value.filter((_) => _.name !== file);
+  activeFile.value = "index.html";
+  selectFile({ name: activeFile.value });
+
   compileResult();
 };
 </script>
