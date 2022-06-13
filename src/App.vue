@@ -6,9 +6,11 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { computed, onMounted, ref } from "vue";
-import { useFileStore, welcomeCode } from "./store/fileStore";
+import { useFileStore, VueWelcomeCode } from "./store/fileStore";
 import srcdoc from "./assets/playground.html?raw";
-import { debounce, stringFormat, filesFormat } from "./utils";
+import { debounce } from "./utils";
+import { parse, compileTemplate } from "vue/compiler-sfc";
+import hashId from "hash-sum";
 
 const preview = ref();
 
@@ -39,7 +41,7 @@ onMounted(() => {
   preview.value.appendChild(sandBox);
 
   monacoEditor = Monaco.editor.create(document.getElementById("editor"), {
-    value: welcomeCode["html"],
+    value: VueWelcomeCode,
     language: "html",
     fontSize: "16px",
     theme: "vs-dark",
@@ -61,21 +63,17 @@ onMounted(() => {
   );
 });
 const compileResult = () => {
-  let templateCode =
-    `document.body.innerHTML = "${filesFormat(
-      fileStore.$state.files["html"]
-    )}";` +
-    `${filesFormat(fileStore.$state.files["js"], true)}` +
-    `window.__css = "${filesFormat(fileStore.$state.files["css"])}";` +
-    `document.getElementById('playground_styles').innerHTML = window.__css;`;
-
-  sandBox.contentWindow.postMessage(
-    {
-      action: "eval",
-      code: stringFormat(templateCode),
-    },
-    "*"
-  );
+  const parseValue = parse(monacoEditor.getValue(), {
+    filename: activeFile.value,
+    sourceMap: true,
+  });
+  console.log(parseValue);
+  const { code } = compileTemplate({
+    id: hashId(activeFile.value),
+    filename: activeFile.value,
+    source: parseValue.descriptor.template.content,
+  });
+  console.log(code);
 };
 
 const setEditorContent = () => {
@@ -89,12 +87,8 @@ const setEditorContent = () => {
   monacoEditor.getModel().setValue(content);
 };
 
-const filesSystem = ref([
-  { name: "index.html" },
-  { name: "index.css" },
-  { name: "index.js" },
-]);
-let activeFile = ref("index.html");
+const filesSystem = ref([{ name: "App.vue" }]);
+let activeFile = ref("App.vue");
 let activeFileName = computed(() => {
   return activeFile.value.split(".");
 });
@@ -111,7 +105,7 @@ let duplicate = ref(false);
 const addFileDone = () => {
   if (!pending.value) return;
   const fileName = placeholder.value;
-  if (!/\.(js|css)$/.test(fileName)) {
+  if (!/\.(js|css|vue)$/.test(fileName)) {
     alert("file type not allowed.");
     return;
   }
@@ -132,10 +126,10 @@ const addFileDone = () => {
   selectFile({ name: fileName });
 };
 const addFileCancel = () => {
-  placeholder.value = "Sample.js";
+  placeholder.value = "Sample.vue";
   pending.value = false;
 };
-const placeholder = ref("Sample.js");
+const placeholder = ref("Sample.vue");
 const focus = ({ el }) => {
   el.focus();
 };
@@ -143,7 +137,7 @@ const removeFile = (file) => {
   alert(`Really want to delete ${file} ???`);
   fileStore.removeFile(file);
   filesSystem.value = filesSystem.value.filter((_) => _.name !== file);
-  activeFile.value = "index.html";
+  activeFile.value = "App.vue";
   selectFile({ name: activeFile.value });
 
   compileResult();

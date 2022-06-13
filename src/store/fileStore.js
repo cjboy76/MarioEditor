@@ -7,6 +7,19 @@ export const welcomeCode = {
   javascript: "console.log('hello world from MarioEditor')",
 };
 
+export const VueWelcomeCode = `
+<script setup>
+import { ref } from 'vue'
+
+const msg = ref('Hello World!')
+</script>
+
+<template>
+  <h1>{{ msg }}</h1>
+  <input v-model="msg">
+</template>
+`;
+
 export const useFileStore = defineStore("fileStore", {
   state: () => {
     return {
