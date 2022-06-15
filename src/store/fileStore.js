@@ -7,8 +7,7 @@ export const welcomeCode = {
   javascript: "console.log('hello world from MarioEditor')",
 };
 
-export const VueWelcomeCode = `
-<script setup>
+export const VueWelcomeCode = `<script setup>
 import { ref } from 'vue'
 
 const msg = ref('Hello World!')
@@ -18,6 +17,12 @@ const msg = ref('Hello World!')
   <h1>{{ msg }}</h1>
   <input v-model="msg">
 </template>
+
+<style>
+  h1 {
+		color: red
+  }
+</style>
 `;
 
 export const useFileStore = defineStore("fileStore", {

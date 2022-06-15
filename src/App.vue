@@ -9,13 +9,11 @@ import { computed, onMounted, ref } from "vue";
 import { useFileStore, VueWelcomeCode } from "./store/fileStore";
 import srcdoc from "./assets/playground.html?raw";
 import { debounce } from "./utils";
-import { parse, compileTemplate } from "vue/compiler-sfc";
+import * as defaultCompiler from "vue/compiler-sfc";
 import hashId from "hash-sum";
 
 const preview = ref();
-
 const fileStore = useFileStore();
-
 self.MonacoEnvironment = {
   getWorker(_, label) {
     if (label === "json") {
@@ -35,6 +33,7 @@ self.MonacoEnvironment = {
 };
 let monacoEditor;
 let sandBox = document.createElement("iframe");
+const COMP_IDENTIFIER = `__sfc__`;
 
 onMounted(() => {
   sandBox.srcdoc = srcdoc;
@@ -53,27 +52,56 @@ onMounted(() => {
 
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
-      fileStore.updateFile(
-        monacoEditor.getValue(),
-        activeFileName.value[1],
-        activeFileName.value[0]
-      );
+      // fileStore.updateFile(
+      //   monacoEditor.getValue(),
+      //   activeFileName.value[1],
+      //   activeFileName.value[0]
+      // );
       compileResult();
     }, 500)
   );
 });
 const compileResult = () => {
-  const parseValue = parse(monacoEditor.getValue(), {
+  const id = hashId(activeFile.value);
+
+  const { descriptor } = defaultCompiler.parse(monacoEditor.getValue(), {
     filename: activeFile.value,
     sourceMap: true,
   });
-  console.log(parseValue);
-  const { code } = compileTemplate({
-    id: hashId(activeFile.value),
+  // template
+  const { code } = defaultCompiler.compileTemplate({
+    id,
     filename: activeFile.value,
-    source: parseValue.descriptor.template.content,
+    source: descriptor.template.content,
+    scoped: descriptor.styles.some((s) => s.scoped),
+    slotted: descriptor.slotted,
   });
-  console.log(code);
+  console.log("compile Template>>", code);
+
+  // script
+  const compiledScript = defaultCompiler.compileScript(descriptor, {
+    inlineTemplate: false,
+    id,
+  });
+  let outputCode = "";
+  outputCode +=
+    `\n` +
+    defaultCompiler.rewriteDefault(compiledScript.content, COMP_IDENTIFIER);
+  console.log("compiled script >>>", outputCode, compiledScript.bindings);
+
+  // style
+  let css = "";
+  for (const style of descriptor.styles) {
+    const styleResult = defaultCompiler.compileStyle({
+      source: style.content,
+      filename: activeFile.value,
+      id,
+      scoped: style.scoped,
+      modules: !!style.module,
+    });
+    css += styleResult.code + "\n";
+  }
+  console.log("compiled css >>>", css);
 };
 
 const setEditorContent = () => {
