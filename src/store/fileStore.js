@@ -45,3 +45,5 @@ export const useFileStore = defineStore("fileStore", {
     },
   },
 });
+
+export const mainFile = "App.vue";

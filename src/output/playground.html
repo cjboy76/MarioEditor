@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style id="playground_styles"></style>
+    <script type="importmap">
+      {
+        "imports": {
+          "vue": "http://localhost:3000/src/vue-dev-proxy",
+          "vue/server-renderer": "http://localhost:3000/src/vue-server-renderer-dev-proxy"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      (() => {
+        let scriptElements = [];
+        window.process = { env: {} };
+        window.__modules__ = {};
+
+        window.__export__ = (mod, key, get) => {
+          Object.defineProperty(mod, key, {
+            enumerable: true,
+            configurable: true,
+            get,
+          });
+        };
+
+        const handleMessages = async (ev) => {
+          try {
+            const { action, code } = ev.data;
+            if (action === "eval") {
+              if (scriptElements.length) {
+                scriptElements.forEach((el) => {
+                  document.head.removeChild(el);
+                });
+                scriptElements = [];
+              }
+
+              for (const script of code) {
+                let scriptEl = document.createElement("script");
+                scriptEl.setAttribute("type", "module");
+
+                const done = new Promise((resolve) => {
+                  window.__next__ = resolve;
+                });
+
+                scriptEl.innerHTML = script + `\nwindow.__next__()`;
+                document.head.appendChild(scriptEl);
+                scriptElements.push(scriptEl);
+
+                await done;
+              }
+            }
+          } catch (err) {
+            console.log(e.message);
+          }
+        };
+        window.addEventListener("message", handleMessages, false);
+      })();
+    </script>
+  </body>
+</html>

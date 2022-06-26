@@ -6,11 +6,11 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { computed, onMounted, ref } from "vue";
-import { useFileStore, VueWelcomeCode } from "./store/fileStore";
-import srcdoc from "./assets/playground.html?raw";
+import { useFileStore, VueWelcomeCode, mainFile } from "./store/fileStore";
+import srcdoc from "./output/playground.html?raw";
 import { debounce } from "./utils";
-import * as defaultCompiler from "vue/compiler-sfc";
-import hashId from "hash-sum";
+import { transformSFC } from "./output/transform";
+import { compileModulesForPreview } from "./output/moduleComplier";
 
 const preview = ref();
 const fileStore = useFileStore();
@@ -33,7 +33,6 @@ self.MonacoEnvironment = {
 };
 let monacoEditor;
 let sandBox = document.createElement("iframe");
-const COMP_IDENTIFIER = `__sfc__`;
 
 onMounted(() => {
   sandBox.srcdoc = srcdoc;
@@ -52,56 +51,40 @@ onMounted(() => {
 
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
-      // fileStore.updateFile(
-      //   monacoEditor.getValue(),
-      //   activeFileName.value[1],
-      //   activeFileName.value[0]
-      // );
       compileResult();
     }, 500)
   );
 });
 const compileResult = () => {
-  const id = hashId(activeFile.value);
+  let clientCode = transformSFC(monacoEditor.getValue(), activeFile.value);
+  let modules = compileModulesForPreview(clientCode, activeFile.value);
 
-  const { descriptor } = defaultCompiler.parse(monacoEditor.getValue(), {
-    filename: activeFile.value,
-    sourceMap: true,
-  });
-  // template
-  const { code } = defaultCompiler.compileTemplate({
-    id,
-    filename: activeFile.value,
-    source: descriptor.template.content,
-    scoped: descriptor.styles.some((s) => s.scoped),
-    slotted: descriptor.slotted,
-  });
-  console.log("compile Template>>", code);
+  const codeToEval = [
+    `window.__modules__ = {};window.__css__ = '';` +
+      `if (window.__app__) window.__app__.unmount();` +
+      `document.body.innerHTML = '<div id="app"></div>'`,
+    ...modules,
+  ];
 
-  // script
-  const compiledScript = defaultCompiler.compileScript(descriptor, {
-    inlineTemplate: false,
-    id,
-  });
-  let outputCode = "";
-  outputCode +=
-    `\n` +
-    defaultCompiler.rewriteDefault(compiledScript.content, COMP_IDENTIFIER);
-  console.log("compiled script >>>", outputCode, compiledScript.bindings);
-
-  // style
-  let css = "";
-  for (const style of descriptor.styles) {
-    const styleResult = defaultCompiler.compileStyle({
-      source: style.content,
-      filename: activeFile.value,
-      id,
-      scoped: style.scoped,
-      modules: !!style.module,
-    });
-    css += styleResult.code + "\n";
-  }
-  console.log("compiled css >>>", css);
+  codeToEval.push(`
+        import { createApp as _createApp } from "vue"
+        const _mount = () => {
+          const AppComponent = __modules__["${mainFile}"].default
+          AppComponent.name = 'Repl'
+          const app = window.__app__ = _createApp(AppComponent)
+          app.config.unwrapInjectedRef = true
+          app.config.errorHandler = e => console.error(e)
+          app.mount('#app')
+        }
+        _mount()
+        `);
+  sandBox.contentWindow.postMessage(
+    {
+      action: "eval",
+      code: codeToEval,
+    },
+    "*"
+  );
 };
 
 const setEditorContent = () => {
@@ -144,7 +127,6 @@ const addFileDone = () => {
       return;
     }
   });
-  console.log(duplicate);
   if (duplicate.value) {
     alert("file name existed.");
     return;
