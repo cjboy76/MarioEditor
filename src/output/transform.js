@@ -1,17 +1,28 @@
 import hashId from "hash-sum";
 import * as defaultCompiler from "vue/compiler-sfc";
-const { shouldTransformRef, transformRef } = defaultCompiler;
 
+const { shouldTransformRef, transformRef } = defaultCompiler;
 const COMP_IDENTIFIER = `__sfc__`;
 
 export const transformSFC = (editorValue, fileName) => {
   const id = hashId(fileName);
   let clientCode = "";
 
+  if (filename.endsWith(".js")) {
+    let code = "";
+    if (shouldTransformRef(editorValue)) {
+      code = transformRef(editorValue, { filename }).code;
+    }
+    clientCode = code;
+    return;
+  }
+
   const { descriptor } = defaultCompiler.parse(editorValue, {
     filename: fileName,
     sourceMap: true,
   });
+
+  const hasScoped = descriptor.styles.some((s) => s.scoped);
 
   // script
   const compiledScript = defaultCompiler.compileScript(descriptor, {
@@ -38,19 +49,25 @@ export const transformSFC = (editorValue, fileName) => {
   // });
   // clientCode += code;
 
+  if (hasScoped) {
+    clientCode += `\n${COMP_IDENTIFIER}.__scopeId = ${JSON.stringify(
+      `data-v-${id}`
+    )}`;
+  }
+
   // style
-  // let css = "";
-  // for (const style of descriptor.styles) {
-  //   const styleResult = defaultCompiler.compileStyle({
-  //     source: style.content,
-  //     filename: fileName,
-  //     id,
-  //     scoped: style.scoped,
-  //     modules: !!style.module,
-  //   });
-  //   css += styleResult.code + "\n";
-  // }
-  // console.log("compiled css >>>", css);
+  let css = "";
+  for (const style of descriptor.styles) {
+    const styleResult = defaultCompiler.compileStyle({
+      source: style.content,
+      filename: fileName,
+      id,
+      scoped: style.scoped,
+      modules: !!style.module,
+    });
+    css += styleResult.code + "\n";
+  }
+  console.log("compiled css >>>", css.trim());
   if (clientCode) {
     clientCode +=
       `\n${COMP_IDENTIFIER}.__file = ${JSON.stringify(fileName)}` +

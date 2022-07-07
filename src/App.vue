@@ -6,7 +6,11 @@ import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
 import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { computed, onMounted, ref } from "vue";
-import { useFileStore, VueWelcomeCode, mainFile } from "./store/fileStore";
+import {
+  useFileStore,
+  VueWelcomeCode,
+  defaultMainFile,
+} from "./store/fileStore";
 import srcdoc from "./output/playground.html?raw";
 import { debounce } from "./utils";
 import { transformSFC } from "./output/transform";
@@ -51,11 +55,18 @@ onMounted(() => {
 
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
+      fileStore.updateFile(monacoEditor.getValue(), activeFile.value);
+
       compileResult();
     }, 500)
   );
 });
 const compileResult = () => {
+  // console.log(fileStore.files);
+  for (const file in fileStore.files) {
+    console.log("file...", fileStore.files[file]);
+  }
+  return;
   let clientCode = transformSFC(monacoEditor.getValue(), activeFile.value);
   let modules = compileModulesForPreview(clientCode, activeFile.value);
 
@@ -69,7 +80,7 @@ const compileResult = () => {
   codeToEval.push(`
         import { createApp as _createApp } from "vue"
         const _mount = () => {
-          const AppComponent = __modules__["${mainFile}"].default
+          const AppComponent = __modules__["${defaultMainFile}"].default
           AppComponent.name = 'Repl'
           const app = window.__app__ = _createApp(AppComponent)
           app.config.unwrapInjectedRef = true
@@ -78,29 +89,33 @@ const compileResult = () => {
         }
         _mount()
         `);
-  sandBox.contentWindow.postMessage(
-    {
-      action: "eval",
-      code: codeToEval,
-    },
-    "*"
-  );
+
+  // sandBox.contentWindow.postMessage(
+  //   {
+  //     action: "eval",
+  //     code: codeToEval,
+  //   },
+  //   "*"
+  // );
 };
 
 const setEditorContent = () => {
   Monaco.editor.setModelLanguage(
     monacoEditor.getModel(),
-    activeFileName.value[1] === "js" ? "javascript" : activeFileName.value[1]
+    activeFileName.value[1] === "js"
+      ? "javascript"
+      : activeFileName.value[1] === "vue"
+      ? "html"
+      : activeFileName.value[1]
   );
-  let content =
-    fileStore.$state.files[activeFileName.value[1]][activeFileName.value[0]] ??
-    "";
+  const file = fileStore.$state.files[activeFileName.value];
+  const content = file ? file.code : "";
   monacoEditor.getModel().setValue(content);
 };
 
 const filesSystem = ref([{ name: "App.vue" }]);
 let activeFile = ref("App.vue");
-let activeFileName = computed(() => {
+const activeFileName = computed(() => {
   return activeFile.value.split(".");
 });
 const selectFile = ({ name }) => {
@@ -111,26 +126,24 @@ const pending = ref(false);
 const addFileStart = () => {
   pending.value = true;
 };
-let duplicate = ref(false);
+
+const checkDuplicate = (files, fileName) => {
+  return files.some((_) => _.name === fileName);
+};
 
 const addFileDone = () => {
   if (!pending.value) return;
   const fileName = placeholder.value;
   if (!/\.(js|css|vue)$/.test(fileName)) {
-    alert("file type not allowed.");
+    alert("File type not allowed.");
     return;
   }
-  duplicate.value = false;
-  filesSystem.value.forEach((_) => {
-    if (_.name === fileName) {
-      duplicate.value = true;
-      return;
-    }
-  });
-  if (duplicate.value) {
-    alert("file name existed.");
+  const isDuplicate = checkDuplicate(filesSystem.value, fileName);
+  if (isDuplicate) {
+    alert("File name existed.");
     return;
   }
+
   addFileCancel();
   filesSystem.value.push({ name: fileName });
   selectFile({ name: fileName });
@@ -143,14 +156,15 @@ const placeholder = ref("Sample.vue");
 const focus = ({ el }) => {
   el.focus();
 };
-const removeFile = (file) => {
-  alert(`Really want to delete ${file} ???`);
-  fileStore.removeFile(file);
-  filesSystem.value = filesSystem.value.filter((_) => _.name !== file);
-  activeFile.value = "App.vue";
+
+const removeFile = (fileName) => {
+  alert(`Really want to delete ${fileName} ???`);
+  fileStore.removeFile(fileName);
+  filesSystem.value = filesSystem.value.filter((_) => _.name !== fileName);
+  activeFile.value = defaultMainFile;
   selectFile({ name: activeFile.value });
 
-  compileResult();
+  // compileResult();
 };
 </script>
 
@@ -168,7 +182,7 @@ const removeFile = (file) => {
         </span>
         <span
           class="p-0"
-          v-if="file.name !== 'index.html'"
+          v-if="file.name !== 'App.vue'"
           @click="removeFile(file.name)"
           >✖️</span
         >

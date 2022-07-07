@@ -20,8 +20,6 @@ function processModule(src, filename) {
     sourceType: "module",
   }).program.body;
 
-  // console.log(">>>", s.toString());
-
   const idToImportMap = new Map();
   const declaredConst = new Set();
   const importedFiles = new Set();

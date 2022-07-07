@@ -28,22 +28,25 @@ const msg = ref('Hello World!')
 export const useFileStore = defineStore("fileStore", {
   state: () => {
     return {
-      files: {
-        html: { index: welcomeCode["html"] },
-        css: { index: welcomeCode["css"] },
-        js: { index: welcomeCode["javascript"] },
-      },
+      files: {},
     };
   },
   actions: {
-    updateFile(file, genre, name) {
-      this.files[genre][name] = file;
+    updateFile(file, fileName) {
+      if (this.files[fileName]) {
+        this.files[fileName].code = file;
+        return;
+      }
+      const newFile = {
+        code: file,
+      };
+      this.files[fileName] = newFile;
     },
-    removeFile(file) {
-      const fileName = file.split(".");
-      delete this.files[fileName[1]][fileName[0]];
+
+    removeFile(fileName) {
+      delete this.files[fileName];
     },
   },
 });
 
-export const mainFile = "App.vue";
+export const defaultMainFile = "App.vue";
