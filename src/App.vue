@@ -37,10 +37,9 @@ const updateView = () => {
   compileResult();
 };
 
-const compileResult = () => {
+const compileResult = async () => {
   for (const file in fileStore.files) {
-    if (!fileStore.files[file].code) continue;
-    transformSFC(fileStore, fileStore.files[file].code, file);
+    await transformSFC(fileStore, fileStore.files[file].code, file);
   }
 
   const modules = compileModulesForPreview(fileStore);
@@ -50,6 +49,7 @@ const compileResult = () => {
       `if (window.__app__) window.__app__.unmount();` +
       `document.body.innerHTML = '<div id="app"></div>'`,
     ...modules,
+    `document.getElementById('playground_styles').innerHTML = window.__css__`,
   ];
 
   codeToEval.push(`

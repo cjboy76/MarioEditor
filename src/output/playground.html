@@ -57,7 +57,7 @@
               }
             }
           } catch (err) {
-            console.log(e.message);
+            throw err.message;
           }
         };
         window.addEventListener("message", handleMessages, false);

@@ -214,7 +214,6 @@ function processFile(store, file, processed, seen) {
     file
   );
 
-  console.log(importedFiles);
   // append css
   if (store.files[file].compiled.css) {
     js += `\nwindow.__css__ += ${JSON.stringify(
