@@ -4,18 +4,19 @@ import * as defaultCompiler from "vue/compiler-sfc";
 const { shouldTransformRef, transformRef } = defaultCompiler;
 const COMP_IDENTIFIER = `__sfc__`;
 
-export const transformSFC = (editorValue, fileName) => {
+export const transformSFC = (store, editorValue, fileName) => {
   const id = hashId(fileName);
-  let clientCode = "";
 
-  if (filename.endsWith(".js")) {
+  if (fileName.endsWith(".js")) {
     let code = "";
     if (shouldTransformRef(editorValue)) {
-      code = transformRef(editorValue, { filename }).code;
+      code = transformRef(editorValue, { fileName }).code;
     }
-    clientCode = code;
+    store.files[fileName].compiled.js = code;
     return;
   }
+
+  let clientCode = "";
 
   const { descriptor } = defaultCompiler.parse(editorValue, {
     filename: fileName,
@@ -67,11 +68,12 @@ export const transformSFC = (editorValue, fileName) => {
     });
     css += styleResult.code + "\n";
   }
-  console.log("compiled css >>>", css.trim());
+  css = css.trim();
   if (clientCode) {
     clientCode +=
       `\n${COMP_IDENTIFIER}.__file = ${JSON.stringify(fileName)}` +
       `\nexport default ${COMP_IDENTIFIER}`;
   }
-  return clientCode;
+
+  store.updateCompiledFile({ js: clientCode, css }, fileName);
 };

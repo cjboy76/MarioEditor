@@ -1,11 +1,4 @@
 import { defineStore } from "pinia";
-export const welcomeCode = {
-  html: "<h1 class='h1'>hello world</h1>",
-  css: `.h1{
-    color:purple
-  }`,
-  javascript: "console.log('hello world from MarioEditor')",
-};
 
 export const VueWelcomeCode = `<script setup>
 import { ref } from 'vue'
@@ -39,12 +32,17 @@ export const useFileStore = defineStore("fileStore", {
       }
       const newFile = {
         code: file,
+        compiled: {},
       };
       this.files[fileName] = newFile;
     },
 
     removeFile(fileName) {
       delete this.files[fileName];
+    },
+
+    updateCompiledFile(compiled, fileName) {
+      this.files[fileName].compiled = compiled;
     },
   },
 });

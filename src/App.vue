@@ -1,74 +1,49 @@
 <script setup>
-import * as Monaco from "monaco-editor";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
-import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
-import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
-import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+import { editorInit, monacoEditor } from "./utils/monaco";
 import { computed, onMounted, ref } from "vue";
-import {
-  useFileStore,
-  VueWelcomeCode,
-  defaultMainFile,
-} from "./store/fileStore";
+import { useFileStore, defaultMainFile } from "./store/fileStore";
 import srcdoc from "./output/playground.html?raw";
-import { debounce } from "./utils";
+import { debounce } from "./utils/debounce";
 import { transformSFC } from "./output/transform";
 import { compileModulesForPreview } from "./output/moduleComplier";
 
 const preview = ref();
 const fileStore = useFileStore();
-self.MonacoEnvironment = {
-  getWorker(_, label) {
-    if (label === "json") {
-      return new jsonWorker();
-    }
-    if (label === "css" || label === "scss" || label === "less") {
-      return new cssWorker();
-    }
-    if (label === "html" || label === "handlebars" || label === "razor") {
-      return new htmlWorker();
-    }
-    if (label === "typescript" || label === "javascript") {
-      return new tsWorker();
-    }
-    return new editorWorker();
-  },
-};
-let monacoEditor;
-let sandBox = document.createElement("iframe");
+const sandBox = document.createElement("iframe");
+const filesSystem = ref(new Set());
+const fileList = computed(() => {
+  return [...filesSystem.value];
+});
 
 onMounted(() => {
+  editorInit();
   sandBox.srcdoc = srcdoc;
   preview.value.appendChild(sandBox);
-
-  monacoEditor = Monaco.editor.create(document.getElementById("editor"), {
-    value: VueWelcomeCode,
-    language: "html",
-    fontSize: "16px",
-    theme: "vs-dark",
-  });
+  filesSystem.value.add(defaultMainFile);
 
   sandBox.addEventListener("load", () => {
-    compileResult();
+    updateView();
   });
 
   monacoEditor.getModel().onDidChangeContent(
     debounce(() => {
-      fileStore.updateFile(monacoEditor.getValue(), activeFile.value);
-
-      compileResult();
+      updateView();
     }, 500)
   );
 });
+
+const updateView = () => {
+  fileStore.updateFile(monacoEditor.getValue(), activeFile.value);
+  compileResult();
+};
+
 const compileResult = () => {
-  // console.log(fileStore.files);
   for (const file in fileStore.files) {
-    console.log("file...", fileStore.files[file]);
+    if (!fileStore.files[file].code) continue;
+    transformSFC(fileStore, fileStore.files[file].code, file);
   }
-  return;
-  let clientCode = transformSFC(monacoEditor.getValue(), activeFile.value);
-  let modules = compileModulesForPreview(clientCode, activeFile.value);
+
+  const modules = compileModulesForPreview(fileStore);
 
   const codeToEval = [
     `window.__modules__ = {};window.__css__ = '';` +
@@ -90,37 +65,34 @@ const compileResult = () => {
         _mount()
         `);
 
-  // sandBox.contentWindow.postMessage(
-  //   {
-  //     action: "eval",
-  //     code: codeToEval,
-  //   },
-  //   "*"
-  // );
+  sandBox.contentWindow.postMessage(
+    {
+      action: "eval",
+      code: codeToEval,
+    },
+    "*"
+  );
 };
 
-const setEditorContent = () => {
+const setEditorContent = (fileName) => {
   Monaco.editor.setModelLanguage(
     monacoEditor.getModel(),
-    activeFileName.value[1] === "js"
+    fileName.endsWith("js")
       ? "javascript"
-      : activeFileName.value[1] === "vue"
+      : fileName.endsWith("vue")
       ? "html"
-      : activeFileName.value[1]
+      : "css"
   );
-  const file = fileStore.$state.files[activeFileName.value];
+  const file = fileStore.$state.files[fileName];
   const content = file ? file.code : "";
   monacoEditor.getModel().setValue(content);
 };
 
-const filesSystem = ref([{ name: "App.vue" }]);
-let activeFile = ref("App.vue");
-const activeFileName = computed(() => {
-  return activeFile.value.split(".");
-});
-const selectFile = ({ name }) => {
-  activeFile.value = name;
-  setEditorContent();
+const activeFile = ref("App.vue");
+
+const selectFile = (filename) => {
+  activeFile.value = filename;
+  setEditorContent(activeFile.value);
 };
 const pending = ref(false);
 const addFileStart = () => {
@@ -128,7 +100,7 @@ const addFileStart = () => {
 };
 
 const checkDuplicate = (files, fileName) => {
-  return files.some((_) => _.name === fileName);
+  return files.has(fileName);
 };
 
 const addFileDone = () => {
@@ -145,8 +117,8 @@ const addFileDone = () => {
   }
 
   addFileCancel();
-  filesSystem.value.push({ name: fileName });
-  selectFile({ name: fileName });
+  filesSystem.value.add(fileName);
+  selectFile(fileName);
 };
 const addFileCancel = () => {
   placeholder.value = "Sample.vue";
@@ -160,30 +132,28 @@ const focus = ({ el }) => {
 const removeFile = (fileName) => {
   alert(`Really want to delete ${fileName} ???`);
   fileStore.removeFile(fileName);
-  filesSystem.value = filesSystem.value.filter((_) => _.name !== fileName);
+  filesSystem.value = filesSystem.value.delete(fileName);
   activeFile.value = defaultMainFile;
   selectFile({ name: activeFile.value });
-
-  // compileResult();
 };
 </script>
 
 <template>
-  <div id="LAONE">
+  <div id="Mario">
     <div class="editor">
       <div
         class="file"
-        v-for="file of filesSystem"
-        :key="file.name"
-        :class="{ active: activeFile === file.name }"
+        v-for="file of fileList"
+        :key="file"
+        :class="{ active: activeFile === file }"
       >
         <span @click="selectFile(file)">
-          {{ file.name }}
+          {{ file }}
         </span>
         <span
           class="p-0"
           v-if="file.name !== 'App.vue'"
-          @click="removeFile(file.name)"
+          @click="removeFile(file)"
           >✖️</span
         >
       </div>
@@ -219,7 +189,7 @@ const removeFile = (fileName) => {
   height: 100vh;
   background: $--bg-default;
 }
-#LAONE {
+#Mario {
   display: flex;
   position: absolute;
   bottom: 0;

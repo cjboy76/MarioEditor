@@ -7,13 +7,14 @@ import {
   isInDestructureAssignment,
   isStaticProperty,
 } from "vue/compiler-sfc";
+import { defaultMainFile } from "../store/fileStore";
 
 const modulesKey = `__modules__`;
 const exportKey = `__export__`;
 const dynamicImportKey = `__dynamic_import__`;
 const moduleKey = `__module__`;
 
-function processModule(src, filename) {
+function processModule(store, src, filename) {
   const s = new MagicString(src);
   const ast = babelParse(src, {
     sourceFilename: filename,
@@ -27,7 +28,8 @@ function processModule(src, filename) {
 
   function defineImport(node, source) {
     const filename = source.replace(/^\.\/+/, "");
-    if (!(filename in store.state.files)) {
+    console.log(filename);
+    if (!(filename in store.$state.files)) {
       throw new Error(`File "${filename}" does not exist.`);
     }
     if (importedFiles.has(filename)) {
@@ -200,53 +202,51 @@ function processModule(src, filename) {
   return [s.toString(), importedFiles];
 }
 
-function processFile(
-  // store: Store,
-  // file: File,
-  processed,
-  // seen: Set<File>,
-  // isSSR: boolean
-  src,
-  filename
-) {
-  // if (seen.has(file)) {
-  //   return []
-  // }
-  // seen.add(file)
+function processFile(store, file, processed, seen) {
+  if (seen.has(file)) {
+    return [];
+  }
+  seen.add(file);
 
-  let [js, importedFiles] = processModule(src, filename);
+  let [js, importedFiles] = processModule(
+    store,
+    store.files[file].compiled.js,
+    file
+  );
+
+  console.log(importedFiles);
   // append css
-  // if (!isSSR && file.compiled.css) {
-  //   js += `\nwindow.__css__ += ${JSON.stringify(file.compiled.css)}`
-  // }
+  if (store.files[file].compiled.css) {
+    js += `\nwindow.__css__ += ${JSON.stringify(
+      store.files[file].compiled.css
+    )}`;
+  }
   // crawl child imports
-  // if (importedFiles.size) {
-  //   for (const imported of importedFiles) {
-  //     processFile(store, store.state.files[imported], processed, seen, isSSR);
-  //   }
-  // }
+  if (importedFiles.size) {
+    for (const imported of importedFiles) {
+      processFile(store, imported, processed, seen);
+    }
+  }
   // push self
   processed.push(js);
 }
 
-export function compileModulesForPreview(src, filename) {
-  // const seen = new Set();
+export function compileModulesForPreview(store) {
+  const seen = new Set();
   const processed = [];
-  processFile(processed, src, filename);
+  processFile(store, defaultMainFile, processed, seen);
 
-  // if (!isSSR) {
-  //   // also add css files that are not imported
-  //   for (const filename in store.state.files) {
-  //     if (filename.endsWith('.css')) {
-  //       const file = store.state.files[filename]
-  //       if (!seen.has(file)) {
-  //         processed.push(
-  //           `\nwindow.__css__ += ${JSON.stringify(file.compiled.css)}`
-  //         )
-  //       }
-  //     }
-  //   }
-  // }
+  // also add css files that are not imported
+  for (const filename in store.files) {
+    if (filename.endsWith(".css")) {
+      const file = store.files[filename];
+      if (!seen.has(file)) {
+        processed.push(
+          `\nwindow.__css__ += ${JSON.stringify(file.compiled.css)}`
+        );
+      }
+    }
+  }
 
   return processed;
 }
