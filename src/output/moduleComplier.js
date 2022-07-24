@@ -28,7 +28,6 @@ function processModule(store, src, filename) {
 
   function defineImport(node, source) {
     const filename = source.replace(/^\.\/+/, "");
-    console.log(filename);
     if (!(filename in store.$state.files)) {
       throw new Error(`File "${filename}" does not exist.`);
     }

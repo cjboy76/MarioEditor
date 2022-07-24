@@ -1,5 +1,5 @@
 <script setup>
-import { editorInit, monacoEditor } from "./utils/monaco";
+import { editorInit, monacoEditor, Monaco } from "./utils/monaco";
 import { computed, onMounted, ref } from "vue";
 import { useFileStore, defaultMainFile } from "./store/fileStore";
 import srcdoc from "./output/playground.html?raw";

@@ -24,9 +24,9 @@ self.MonacoEnvironment = {
   },
 };
 
-export let monacoEditor;
+let monacoEditor;
 
-export const editorInit = () => {
+const editorInit = () => {
   monacoEditor = Monaco.editor.create(document.getElementById("editor"), {
     value: VueWelcomeCode,
     language: "html",
@@ -34,3 +34,5 @@ export const editorInit = () => {
     theme: "vs-dark",
   });
 };
+
+export { monacoEditor, editorInit, Monaco };
