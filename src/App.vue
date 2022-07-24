@@ -132,9 +132,9 @@ const focus = ({ el }) => {
 const removeFile = (fileName) => {
   alert(`Really want to delete ${fileName} ???`);
   fileStore.removeFile(fileName);
-  filesSystem.value = filesSystem.value.delete(fileName);
+  filesSystem.value.delete(fileName);
   activeFile.value = defaultMainFile;
-  selectFile({ name: activeFile.value });
+  selectFile(activeFile.value);
 };
 </script>
 
