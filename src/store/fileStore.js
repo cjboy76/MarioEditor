@@ -1,9 +1,11 @@
 import { defineStore } from "pinia";
 
 export const VueWelcomeCode = `<script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const msg = ref('Hello World!')
+onMounted(() => console.log("onMounted ..."))
+
 </script>
 
 <template>

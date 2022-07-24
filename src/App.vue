@@ -4,8 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useFileStore, defaultMainFile } from "./store/fileStore";
 import srcdoc from "./output/playground.html?raw";
 import { debounce } from "./utils/debounce";
-import { transformSFC } from "./output/transform";
-import { compileModulesForPreview } from "./output/moduleComplier";
+import { compileResult } from "./output/previewCompile";
 
 const preview = ref();
 const fileStore = useFileStore();
@@ -15,8 +14,9 @@ const fileList = computed(() => {
   return [...filesSystem.value];
 });
 
-onMounted(() => {
-  editorInit();
+onMounted(async () => {
+  await editorInit();
+
   sandBox.srcdoc = srcdoc;
   preview.value.appendChild(sandBox);
   filesSystem.value.add(defaultMainFile);
@@ -34,55 +34,19 @@ onMounted(() => {
 
 const updateView = () => {
   fileStore.updateFile(monacoEditor.getValue(), activeFile.value);
-  compileResult();
-};
-
-const compileResult = async () => {
-  for (const file in fileStore.files) {
-    await transformSFC(fileStore, fileStore.files[file].code, file);
-  }
-
-  const modules = compileModulesForPreview(fileStore);
-
-  const codeToEval = [
-    `window.__modules__ = {};window.__css__ = '';` +
-      `if (window.__app__) window.__app__.unmount();` +
-      `document.body.innerHTML = '<div id="app"></div>'`,
-    ...modules,
-    `document.getElementById('playground_styles').innerHTML = window.__css__`,
-  ];
-
-  codeToEval.push(`
-        import { createApp as _createApp } from "vue"
-        const _mount = () => {
-          const AppComponent = __modules__["${defaultMainFile}"].default
-          AppComponent.name = 'Repl'
-          const app = window.__app__ = _createApp(AppComponent)
-          app.config.unwrapInjectedRef = true
-          app.config.errorHandler = e => console.error(e)
-          app.mount('#app')
-        }
-        _mount()
-        `);
-
-  sandBox.contentWindow.postMessage(
-    {
-      action: "eval",
-      code: codeToEval,
-    },
-    "*"
-  );
+  compileResult(fileStore, sandBox);
 };
 
 const setEditorContent = (fileName) => {
-  Monaco.editor.setModelLanguage(
-    monacoEditor.getModel(),
-    fileName.endsWith("js")
-      ? "javascript"
-      : fileName.endsWith("vue")
-      ? "html"
-      : "css"
-  );
+  const setLang = fileName.endsWith("js")
+    ? "javascript"
+    : fileName.endsWith("vue")
+    ? "vue"
+    : "css";
+
+  console.log(setLang);
+
+  Monaco.editor.setModelLanguage(monacoEditor.getModel(), setLang);
   const file = fileStore.$state.files[fileName];
   const content = file ? file.code : "";
   monacoEditor.getModel().setValue(content);
@@ -132,13 +96,14 @@ const focus = ({ el }) => {
 const removeFile = (fileName) => {
   alert(`Really want to delete ${fileName} ???`);
   fileStore.removeFile(fileName);
-  filesSystem.value = filesSystem.value.delete(fileName);
   activeFile.value = defaultMainFile;
-  selectFile({ name: activeFile.value });
+  selectFile(activeFile.value);
+  filesSystem.value.delete(fileName);
 };
 </script>
 
 <template>
+  <div id="app"></div>
   <div id="Mario">
     <div class="editor">
       <div
